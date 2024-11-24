@@ -7,102 +7,165 @@
 import SwiftUI
 
 struct BookCategoryView: View {
+    @EnvironmentObject var bookCategoryViewModel: BookCategoryViewModel
+    @EnvironmentObject var categoryViewModel: CategoryViewModel
     @EnvironmentObject var bookViewModel: BookViewModel
+    
     @State private var selectedCategory: String? = nil
-    @State private var isShowingAddBook = false
+    @State private var selectedMemberId: String? = nil
+    @State private var showingMemberPicker = false
+    @State private var viewMode: ViewMode = .categories
+    @State private var books: [Book] = []
+    enum ViewMode {
+        case categories
+        case memberBorrowed
+    }
     
     var body: some View {
         NavigationStack {
             VStack {
-                // Header
                 HStack(alignment: .center) {
-                    Text("Book Categories")
+                    Text(viewMode == .categories ? "Book Categories" : "Borrowed Books")
                         .font(.largeTitle)
                         .fontWeight(.semibold)
-                        .padding(.leading, 10)
                     Spacer()
                     Button(action: {
-                        isShowingAddBook = true
+                        viewMode = viewMode == .categories ? .memberBorrowed : .categories
+                        selectedCategory = nil
+                        selectedMemberId = nil
                     }) {
-                        Image(systemName: "plus.circle")
+                        Image(systemName: viewMode == .categories ? "person.circle" : "books.vertical")
                             .font(.title2)
                     }
-                    .padding([.leading, .trailing])
                 }
                 .padding(.horizontal)
                 .padding(.top, 65)
                 
                 Divider()
                 
-                // Category Filter Scrollview
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        CategoryFilterButton(
-                            title: "All",
-                            isSelected: selectedCategory == nil,
-                            action: { selectedCategory = nil }
-                        )
-                        
-                        // Replace with your actual categories
-                        ForEach(["Fiction", "Non-Fiction", "Science", "History", "Art"], id: \.self) { category in
-                            CategoryFilterButton(
-                                title: category,
-                                isSelected: selectedCategory == category,
-                                action: { selectedCategory = category }
-                            )
-                        }
-                    }
-                    .padding()
-                }
-                
-                // Books List
-                GeometryReader { geometry in
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 20) {
-                            if bookViewModel.isLoading {
-                                VStack {
-                                    ProgressView()
-                                }.frame(minWidth: 0, maxWidth: .infinity)
-                            } else {
-                                // Group books by category
-                                ForEach(getCategories(), id: \.self) { category in
-                                    CategorySection(
-                                        category: category,
-                                        books: bookViewModel.books
-                                    )
-                                }
-                            }
-                        }
-                        .padding()
-                    }
+                if viewMode == .memberBorrowed {
+                    memberBorrowedView
+                } else {
+                    categoryView
                 }
             }
-            .sheet(isPresented: $isShowingAddBook) {
-                CreateBookView()
-                    .environmentObject(bookViewModel)
-                    .environment(\.colorScheme, .light)
+            .onAppear {
+                // Load initial data
+                categoryViewModel.getAllCategory()
+                if selectedCategory == nil {
+                    loadAllBooks()
+                }
             }
         }
     }
     
-    // Helper functions
-    private func getCategories() -> [String] {
-        // If a category is selected, only show that category
-        if let selectedCategory {
-            return [selectedCategory]
+    private var categoryView: some View {
+        VStack {
+            // Category filter
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    CategoryFilterButton(
+                        title: "All",
+                        isSelected: selectedCategory == nil,
+                        action: {
+                            selectedCategory = nil
+                            loadAllBooks()
+                        }
+                    )
+                    
+                    ForEach(categoryViewModel.categories) { category in
+                        CategoryFilterButton(
+                            title: category.name,
+                            isSelected: selectedCategory == category.name,
+                            action: {
+                                selectedCategory = category.name
+                                loadBooksByCategory(categoryId: String(category.id))
+                            }
+                        )
+                    }
+                }
+                .padding()
+            }
+            
+            // Books grid
+            ScrollView {
+                if bookViewModel.isLoading {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    LazyVGrid(columns: [
+                        GridItem(.flexible()),
+                        GridItem(.flexible())
+                    ], spacing: 16) {
+                        ForEach(bookViewModel.books) { book in
+                            NavigationLink(destination: BookDetailView(book: book)) {
+                                BookCard(book: book)
+                            }
+                        }
+                    }
+                    .padding()
+                }
+            }
         }
-        // Replace with actual category fetch logic
-        return ["Fiction", "Non-Fiction", "Science", "History", "Art"]
     }
-//    
-//    private func getBooksForCategory(_ category: String) -> [Book] {
-//        // Replace with actual filtered books logic
-//
-//        return bookCategoryViewModel.books.filter { $0 == category }
-//    }
+    
+    private var memberBorrowedView: some View {
+        VStack {
+            // Member selector button
+            Button(action: { showingMemberPicker = true }) {
+                HStack {
+                    Text(selectedMemberId == nil ? "Select Member" : "Member ID: \(selectedMemberId!)")
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                }
+                .padding()
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(10)
+                .padding(.horizontal)
+            }
+            
+            // Borrowed books list
+            ScrollView {
+                if bookViewModel.isLoading {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    LazyVStack(spacing: 16) {
+                        ForEach(bookViewModel.books) { book in
+                            NavigationLink(destination: BookDetailView(book: book)) {
+                                BorrowedBookRow(book: book)
+                            }
+                        }
+                    }
+                    .padding()
+                }
+            }
+        }
+        .sheet(isPresented: $showingMemberPicker) {
+            MemberPickerView(selectedMemberId: $selectedMemberId)
+                .environment(\.colorScheme, .light)
+        }
+        .onChange(of: selectedMemberId) { newValue in
+            if let memberId = newValue {
+                bookViewModel.getBookByMemberId(id: memberId)
+            }
+        }
+    }
+    
+    private func loadAllBooks() {
+        bookViewModel.getAllBook()
+    }
+    
+    private func loadBooksByCategory(categoryId: String) {
+      Task {
+        bookCategoryViewModel.getBookByCategoryId(id: categoryId)
+        for category in bookCategoryViewModel.bookCategories {
+            bookViewModel.books = bookViewModel.books.filter { $0.id.description == category.book_id }
+          }
+      }
+    }
 }
 
-// MARK: - Supporting Views
 struct CategoryFilterButton: View {
     let title: String
     let isSelected: Bool
@@ -120,69 +183,6 @@ struct CategoryFilterButton: View {
                         .fill(isSelected ? Color.blue : Color.gray.opacity(0.1))
                 )
                 .foregroundColor(isSelected ? .white : .primary)
-        }
-    }
-}
-
-struct CategorySection: View {
-    let category: String
-    let books: [Book]
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(category)
-                .font(.title2)
-                .fontWeight(.bold)
-                .padding(.horizontal)
-            
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
-                    ForEach(books) { book in
-                        NavigationLink {
-                            BookDetailView(book: book)
-                        } label: {
-                            BookCardHorizontal(book: book)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                }
-                .padding(.horizontal)
-            }
-        }
-    }
-}
-
-struct BookCardHorizontal: View {
-    let book: Book
-    
-    var body: some View {
-        VStack(alignment: .leading) {
-            // Book Cover Image
-            AsyncImage(url: URL(string:book.cover_image)) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
-                Rectangle()
-                    .fill(Color.gray.opacity(0.2))
-            }
-            .frame(width: 120, height: 180)
-            .cornerRadius(8)
-            
-            
-            // Book Info
-            VStack(alignment: .leading, spacing: 4) {
-                Text(book.title)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .lineLimit(2)
-                
-                Text(book.author)
-                    .font(.caption)
-                    .foregroundColor(.gray)
-                    .lineLimit(1)
-            }
-            .frame(width: 120)
         }
     }
 }

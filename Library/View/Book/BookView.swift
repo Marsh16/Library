@@ -8,9 +8,11 @@ import SwiftUI
 
 struct BookView: View {
     @EnvironmentObject var bookViewModel : BookViewModel
+    @EnvironmentObject var categoryViewModel : CategoryViewModel
+    @EnvironmentObject var bookCategoryViewModel : BookCategoryViewModel
     @State private var isShowingAddBook = false
     var body: some View {
-        NavigationStack {
+        NavigationView {
             VStack {
                 HStack(alignment: .center) {
                     Text("Library")
@@ -54,7 +56,7 @@ struct BookView: View {
                                             BookDetailView(book: book).environmentObject(bookViewModel)
                                         } label: {
                                             LazyVStack {
-                                                BookCard(book: book)
+                                                BookCard(book: book).environmentObject(categoryViewModel)
                                             }
                                         }
                                         .buttonStyle(PlainButtonStyle())
@@ -66,13 +68,13 @@ struct BookView: View {
                     }
                     .padding(.vertical)
                 }.sheet(isPresented: $isShowingAddBook) {
-                    CreateBookView().environmentObject(bookViewModel)
+                    CreateBookView().environmentObject(bookViewModel).environmentObject(categoryViewModel).environmentObject(bookViewModel)
                         .environment(\.colorScheme, .light)
                 }
             }
             .onAppear {
                 bookViewModel.getAllBook()
             }
-        }
+        }.navigationBarBackButtonHidden()
     }
 }

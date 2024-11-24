@@ -61,8 +61,20 @@ class CategoryRepository {
         
         let boundary = UUID().uuidString
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        request.setValue(name, forHTTPHeaderField: "name")
+        
+        var body = Data()
+        
+        func addTextFieldPart(name: String, value: String) {
+            body.append("\r\n--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n".data(using: .utf8)!)
+            body.append(value.data(using: .utf8)!)
+        }
+       
+        addTextFieldPart(name: "name", value: name)
+        
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
 
+        request.httpBody = body
         print("Sending request to: \(url)")
         
         URLSession.shared.dataTask(with: request) { data, response, error in
@@ -104,9 +116,21 @@ class CategoryRepository {
         
         let boundary = UUID().uuidString
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        request.setValue(id, forHTTPHeaderField: "id")
-        request.setValue(name, forHTTPHeaderField: "name")
+        
+        var body = Data()
+        
+        func addTextFieldPart(name: String, value: String) {
+            body.append("\r\n--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n".data(using: .utf8)!)
+            body.append(value.data(using: .utf8)!)
+        }
+       
+        addTextFieldPart(name: "id", value: id)
+        addTextFieldPart(name: "name", value: name)
+        
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
 
+        request.httpBody = body
         print("Sending request to: \(url)")
         
         URLSession.shared.dataTask(with: request) { data, response, error in
@@ -122,8 +146,12 @@ class CategoryRepository {
                     completion(nil)
                     return
                 }
-
+                
                 do {
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        print("Raw response: \(jsonString)")
+                    }
+                    
                     let response = try JSONDecoder().decode(ResponseEditDelete.self, from: data)
                     completion(response.data)
                 } catch {
@@ -148,7 +176,16 @@ class CategoryRepository {
         
         let boundary = UUID().uuidString
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        request.setValue(id, forHTTPHeaderField: "id")
+        
+        var body = Data()
+        
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"id\"\r\n\r\n".data(using: .utf8)!)
+        body.append("\(id)\r\n".data(using: .utf8)!)
+        
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        
+        request.httpBody = body
 
         print("Sending request to: \(url)")
         

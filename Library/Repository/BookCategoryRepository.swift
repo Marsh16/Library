@@ -8,10 +8,10 @@
 import Foundation
 
 class BookCategoryRepository {
-    func getBookByCategoryId(id: String,completion: @escaping ([Book]?) -> Void) {
+    func getBookByCategoryId(id: String,completion: @escaping ([BookCategory]?) -> Void) {
         let urlString = APIManager.shared.baseURL
         
-        guard let url = URL(string: urlString + "/getBookByCategoryId") else {
+        guard let url = URL(string: urlString + "/getBookByCategoryId?id=\(id)") else {
             completion(nil)
             print("Invalid URL: \(urlString + "/getBookByCategoryId")")
             return
@@ -19,7 +19,7 @@ class BookCategoryRepository {
 
         var request = URLRequest(url: url)
         request.httpMethod = RequestMethods.GET
-
+        
         print("Sending request to: \(url)")
 
         URLSession.shared.dataTask(with: request) { data, response, error in
@@ -37,7 +37,52 @@ class BookCategoryRepository {
                 }
 
                 do {
-                    let response = try JSONDecoder().decode(ResponseBooks.self, from: data)
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        print("Raw response: \(jsonString)")
+                    }
+                    let response = try JSONDecoder().decode(ResponseBookCategories.self, from: data)
+                    completion(response.data)
+                } catch {
+                    print("Error decoding JSON: \(error)")
+                    completion(nil)
+                }
+            }
+        }.resume()
+    }
+    
+    func getCategoryByBookId(id: String,completion: @escaping ([BookCategory]?) -> Void) {
+        let urlString = APIManager.shared.baseURL
+        
+        guard let url = URL(string: urlString + "/getCategoryByBookId?id=\(id)") else {
+            completion(nil)
+            print("Invalid URL: \(urlString + "/getCategoryByBookId")")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = RequestMethods.GET
+        
+        print("Sending request to: \(url)")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("Error fetching book category: \(error.localizedDescription)")
+                    completion(nil)
+                    return
+                }
+
+                guard let data = data else {
+                    print("No data received from the server")
+                    completion(nil)
+                    return
+                }
+
+                do {
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        print("Raw response: \(jsonString)")
+                    }
+                    let response = try JSONDecoder().decode(ResponseBookCategories.self, from: data)
                     completion(response.data)
                 } catch {
                     print("Error decoding JSON: \(error)")
@@ -61,9 +106,21 @@ class BookCategoryRepository {
         
         let boundary = UUID().uuidString
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        request.setValue(book_id, forHTTPHeaderField: "book_id")
-        request.setValue(category_id, forHTTPHeaderField: "category_id")
+        
+        var body = Data()
+        
+        func addTextFieldPart(name: String, value: String) {
+            body.append("\r\n--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n".data(using: .utf8)!)
+            body.append(value.data(using: .utf8)!)
+        }
+       
+        addTextFieldPart(name: "book_id", value: book_id)
+        addTextFieldPart(name: "category_id", value: category_id)
+        
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
 
+        request.httpBody = body
         print("Sending request to: \(url)")
         
         URLSession.shared.dataTask(with: request) { data, response, error in
@@ -81,6 +138,9 @@ class BookCategoryRepository {
                 }
 
                 do {
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        print("Raw response: \(jsonString)")
+                    }
                     let response = try JSONDecoder().decode(ResponseCreate.self, from: data)
                     completion(response.data)
                 } catch {
@@ -105,7 +165,17 @@ class BookCategoryRepository {
         
         let boundary = UUID().uuidString
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        request.setValue(id, forHTTPHeaderField: "id")
+        
+        var body = Data()
+        
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"id\"\r\n\r\n".data(using: .utf8)!)
+        body.append("\(id)\r\n".data(using: .utf8)!)
+        
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        
+        request.httpBody = body
+
 
         print("Sending request to: \(url)")
         

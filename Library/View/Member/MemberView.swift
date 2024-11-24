@@ -7,7 +7,7 @@
 import SwiftUI
 
 struct MemberView: View {
-    @EnvironmentObject var bookViewModel: BookViewModel
+    @EnvironmentObject var memberViewModel: MemberViewModel
     @State private var isShowingAddMember = false
     
     var body: some View {
@@ -35,25 +35,40 @@ struct MemberView: View {
                 GeometryReader { geometry in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 15) {
-                            if bookViewModel.isLoading {
+                            if memberViewModel.isLoading {
                                 VStack {
                                     ProgressView()
                                 }.frame(minWidth: 0, maxWidth: .infinity)
+                            } else if memberViewModel.members.count == 0 {
+                                VStack(spacing: 10) {
+                                    Text("Still Empty Here!")
+                                        .font(.title3)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.primary)
+                                }
+                                .padding(.top, 50)
                             } else {
-                                // Replace with your member list
-                                ForEach(0..<5) { index in
-                                    MemberCard(
-                                        name: "Member \(index + 1)",
-                                        email: "member\(index + 1)@example.com",
-                                        borrowedBooks: Int.random(in: 0...5)
-                                    )
+                                ForEach(memberViewModel.members) { member in
+                                    NavigationLink {
+                                        MemberDetailView(member: member).environmentObject(memberViewModel)
+                                    } label: {
+                                        LazyVStack {
+                                            MemberCard(member: member)
+                                        }
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
                                 }
                             }
                         }
                         .padding()
+                    }.sheet(isPresented: $isShowingAddMember) {
+                        CreateMemberView().environmentObject(memberViewModel)
+                            .environment(\.colorScheme, .light)
                     }
                 }
             }
+        }.onAppear{
+            memberViewModel.getAllMember()
         }
     }
 }

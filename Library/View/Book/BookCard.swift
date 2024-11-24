@@ -8,7 +8,10 @@
 import SwiftUI
 
 struct BookCard: View{
+    @EnvironmentObject var categoryViewModel: CategoryViewModel
+    @EnvironmentObject var bookCategoryViewModel: BookCategoryViewModel
     let book: Book
+    @State private var categories: [Category] = []
     var body: some View {
         LazyVStack {
             HStack {
@@ -32,7 +35,9 @@ struct BookCard: View{
                     Text(book.synopsis).lineLimit(3).font(.caption)
                 }
             }.padding()
-        }.background(.white).cornerRadius(10).padding()
+        }.background(.white).cornerRadius(10).padding().onAppear{
+            bookCategoryViewModel.getCategoryByBookId(id: book.id.description)
+        }
     }
 }
 

@@ -8,16 +8,11 @@ import SwiftUI
 
 struct CategoryCard: View {
     let name: String
-    let bookCount: Int
-    
     var body: some View {
         HStack {
             VStack(alignment: .leading) {
                 Text(name)
-                    .font(.headline)
-                Text("\(bookCount) books")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .font(.title2).fontWeight(.semibold)
             }
             Spacer()
             Image(systemName: "chevron.right")
@@ -27,4 +22,9 @@ struct CategoryCard: View {
         .background(Color.gray.opacity(0.1))
         .cornerRadius(10)
     }
+}
+
+#Preview {
+    CategoryCard(name: "Action")
+    CategoryCard(name: "Action")
 }

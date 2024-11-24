@@ -20,7 +20,7 @@ extension DateFormatter {
     }
     
     static func dateFormatterYearComma(_ date: Date) -> String{
-        let dateFormat = "MMM dd, yyyy"
+        let dateFormat = "MMMM dd, yyyy"
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = dateFormat
         return dateFormatter.string(from: date)
@@ -28,7 +28,7 @@ extension DateFormatter {
     
     static func parseFormattedDate(_ formattedDate: String) -> Date? {
         let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d, yyyy"
+        formatter.dateFormat = "MMMM d, yyyy"
 
         return formatter.date(from: formattedDate)
     }

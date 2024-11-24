@@ -8,29 +8,24 @@
 import SwiftUI
 
 struct MemberCard: View {
-    let name: String
-    let email: String
-    let borrowedBooks: Int
+    let member: Member
     
     var body: some View {
         HStack {
             Image(systemName: "person.circle.fill")
                 .font(.largeTitle)
                 .foregroundColor(.gray)
-            
             VStack(alignment: .leading, spacing: 4) {
-                Text(name)
+                Text(member.name)
                     .font(.headline)
-                Text(email)
+                Text(member.birthday)
                     .font(.subheadline)
                     .foregroundColor(.gray)
-                Text("\(borrowedBooks) books borrowed")
+                Text("\(member.email)")
                     .font(.caption)
                     .foregroundColor(.blue)
             }
-            
             Spacer()
-            
             Image(systemName: "chevron.right")
                 .foregroundColor(.gray)
         }

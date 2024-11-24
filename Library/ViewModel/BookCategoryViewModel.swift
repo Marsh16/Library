@@ -20,12 +20,24 @@ class BookCategoryViewModel: ObservableObject{
         self.bookCategoryRepository = bookCategoryRepository
     }
     
-    func getBookByMemberId(id: String) {
+    func getBookByCategoryId(id: String) {
         isLoading = true
         bookCategoryRepository.getBookByCategoryId(id: id) { [weak self] book in
             guard let book = book else { return }
             DispatchQueue.main.async {
-                self?.books = book
+                self?.bookCategories = book
+                self?.isLoading = false
+                let _ = print("success")
+            }
+        }
+    }
+    
+    func getCategoryByBookId(id: String) {
+        isLoading = true
+        bookCategoryRepository.getCategoryByBookId(id: id) { [weak self] book in
+            guard let book = book else { return }
+            DispatchQueue.main.async {
+                self?.bookCategories = book
                 self?.isLoading = false
                 let _ = print("success")
             }

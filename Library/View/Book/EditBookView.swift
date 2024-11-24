@@ -7,10 +7,12 @@
 
 import SwiftUI
 
-// MARK: - Main View
 struct EditBookView: View {
     @Environment(\.presentationMode) var presentationMode
     @EnvironmentObject var bookViewModel: BookViewModel
+    @EnvironmentObject var categoryViewModel: CategoryViewModel
+    @EnvironmentObject var bookCategoryViewModel: BookCategoryViewModel
+    @EnvironmentObject var memberViewModel: MemberViewModel
     
     @State var id: Int
     @State var title: String
@@ -18,9 +20,11 @@ struct EditBookView: View {
     @State var author: String
     @State var publishDate: Date
     @State var coverImage: UIImage?
-    @State var memberId: String
+    @State var member_id: String?
     @State var coverImageURL: String
+    @State var selectedCategories: Set<Int>
     
+    @State private var showingMemberPicker = false
     @State private var isShowingDatePicker = false
     @State private var isImagePicker = false
     @State private var isCamera = false
@@ -35,21 +39,43 @@ struct EditBookView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     bookInfoSection
                     imageSection
+                    categorySection
+                    memberSection
                     datePickerSection
                     editButtonSection
                 }
             }
             .navigationTitle("Edit Book")
-            .onAppear {
-                if bookViewModel.result == "Success" {
-                    bookViewModel.getAllBook()
-                    presentationMode.wrappedValue.dismiss()
-                }
-            }
             .alert("Hold Up!", isPresented: $showAlert) {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(alertMessage)
+            }
+            .onChange(of: bookViewModel.result) { newValue in
+                if newValue == "Success" {
+                    createBookCategories()
+                    presentationMode.wrappedValue.dismiss()
+                }
+            }
+            .onChange(of: bookCategoryViewModel.result) { newValue in
+                if newValue == "Success" {
+                    bookViewModel.getAllBook()
+                    presentationMode.wrappedValue.dismiss()
+                }
+            }
+            .sheet(isPresented: $showingMemberPicker) {
+                MemberPickerView(selectedMemberId: $member_id)
+                    .environment(\.colorScheme, .light)
+            }
+            }
+            .onChange(of: member_id) { newValue in
+            if let memberId = newValue {
+                member_id = memberId
+            }
+            }
+            .navigationDestination(isPresented: $navToHome) {
+                HomeView().environmentObject(bookViewModel)
+                    .navigationBarBackButtonHidden(true)
             }
             .navigationDestination(isPresented: $isCamera) {
                 CameraPickerView(selectedImage: $coverImage, navToConfirmation: $navToHome)
@@ -63,8 +89,10 @@ struct EditBookView: View {
                 BookImagePopup(isImagePicker: $isImagePicker, isCamera: $isCamera, isLibrary: $isLibrary)
                     .opacity(isImagePicker ? 1 : 0)
             )
+            .onAppear {
+                categoryViewModel.getAllCategory()
+            }
         }
-    }
 }
 
 // MARK: - View Extensions
@@ -74,6 +102,76 @@ private extension EditBookView {
             FormField(title: "Name", text: $title, placeholder: "Please enter book title")
             FormField(title: "Synopsis", text: $synopsis, placeholder: "Please enter book synopsis")
             FormField(title: "Author", text: $author, placeholder: "Please enter book author")
+        }
+    }
+    
+    var memberSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            RequiredFieldLabel(title: "Member")
+            Button(action: { showingMemberPicker = true }) {
+                HStack {
+                        Text(member_id == nil ? "Select Member" : "Member ID: \(member_id!)")
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                }
+                .padding()
+                .frame(maxWidth: .infinity)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.gray.opacity(0.5), lineWidth: 1)
+                )
+            }.padding(.horizontal)
+        }
+    }
+    
+    private func toggleCategory(_ categoryId: Int) {
+        if selectedCategories.contains(categoryId) {
+            selectedCategories.remove(categoryId)
+        } else {
+            selectedCategories.insert(categoryId)
+        }
+    }
+    
+    private func createBookCategories() {
+        bookViewModel.getAllBook()
+        let existingCategoryIDs = Set(bookCategoryViewModel.bookCategories.map { $0.id })
+        
+        for categoryId in selectedCategories {
+            if !existingCategoryIDs.contains(categoryId) {
+                bookCategoryViewModel.createBookCategory(
+                    book_id: id.description,
+                    category_id: String(categoryId)
+                )
+            }
+        }
+        print("added book categories")
+    }
+    
+    var categorySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            RequiredFieldLabel(title: "Categories")
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(categoryViewModel.categories) { category in
+                        CategoryChip(
+                            title: category.name,
+                            isSelected: selectedCategories.contains(category.id),
+                            action: {
+                                toggleCategory(category.id)
+                            }
+                        )
+                    }
+                }
+                .padding(.horizontal)
+            }
+            
+            if !selectedCategories.isEmpty {
+                Text("Selected: \(selectedCategories.count)")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                    .padding(.horizontal)
+            }
         }
     }
     
@@ -186,7 +284,7 @@ private extension EditBookView {
 // MARK: - Helper Methods
 private extension EditBookView {
     func editBooks() {
-        if let coverImage {
+        if let coverImage, let member_id {
             bookViewModel.result = "Uploading"
             bookViewModel.editBook(
                 id: String(id),
@@ -194,14 +292,30 @@ private extension EditBookView {
                 synopsis: synopsis,
                 coverImage: coverImage,
                 author: author,
-                publishDate: DateFormatter.formatDate(publishDate),
-                memberId: "1"
+                publishDate: DateFormatter.dateFormatterYearComma(publishDate),
+                memberId: member_id
             )
-        }
-        
-        if bookViewModel.result == "Success" {
-            bookViewModel.getAllBook()
-            presentationMode.wrappedValue.dismiss()
+        }else{
+            do {
+                let url = URL(string: coverImageURL)!
+                let data = try Data(contentsOf: url)
+                let myImage = UIImage(data: data)
+                if let myImage, let member_id {
+                    bookViewModel.result = "Uploading"
+                    bookViewModel.editBook(
+                        id: String(id),
+                        title: title,
+                        synopsis: synopsis,
+                        coverImage: myImage,
+                        author: author,
+                        publishDate: DateFormatter.dateFormatterYearComma(publishDate),
+                        memberId: member_id
+                    )
+                }
+            } catch {
+                    print("Error: \(error)")
+                }
+            
         }
     }
     
@@ -227,7 +341,17 @@ private extension EditBookView {
             alertMessage = "Cover image is Empty!"
             return false
         }
-        
+        if let member_id{
+            if member_id.isEmpty {
+                alertMessage = "Please select member!"
+                return false
+            }
+        }
+        if selectedCategories.count == 0{
+            alertMessage = "Please select category!"
+            return false
+        }
+
         alertMessage = ""
         return true
     }
@@ -241,8 +365,8 @@ private extension EditBookView {
         synopsis: "Sample Synopsis",
         author: "Sample Author",
         publishDate: Date(),
-        memberId: "1",
-        coverImageURL: "Sample Image"
+        member_id: "1",
+        coverImageURL: "Sample Image", selectedCategories: [1, 2, 3]
     )
     .environmentObject(BookViewModel())
 }

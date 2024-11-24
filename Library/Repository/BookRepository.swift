@@ -51,7 +51,7 @@ class BookRepository {
     func getBookByBookId(id: String, completion: @escaping (Book?) -> Void) {
         let urlString = APIManager.shared.baseURL
         
-        guard let url = URL(string: urlString + "/getBookByBookId") else {
+        guard let url = URL(string: urlString + "/getBookByBookId?id=\(id)") else {
             completion(nil)
             print("Invalid URL: \(urlString + "/getBookByBookId")")
             return
@@ -59,10 +59,6 @@ class BookRepository {
 
         var request = URLRequest(url: url)
         request.httpMethod = RequestMethods.GET
-        
-        let boundary = UUID().uuidString
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        request.setValue(id, forHTTPHeaderField: "id")
 
         print("Sending request to: \(url)")
         
@@ -94,7 +90,7 @@ class BookRepository {
     func getBookByMemberId(id: String, completion: @escaping ([Book]?) -> Void) {
         let urlString = APIManager.shared.baseURL
         
-        guard let url = URL(string: urlString + "/getBookByMemberId") else {
+        guard let url = URL(string: urlString + "/getBookByMemberId?id=\(id)") else {
             completion(nil)
             print("Invalid URL: \(urlString + "/getBookByMemberId")")
             return
@@ -102,12 +98,6 @@ class BookRepository {
 
         var request = URLRequest(url: url)
         request.httpMethod = RequestMethods.GET
-        
-        let boundary = UUID().uuidString
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        request.setValue(id, forHTTPHeaderField: "id")
-
-        print("Sending request to: \(url)")
         
         URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
@@ -297,25 +287,36 @@ class BookRepository {
         
         let boundary = UUID().uuidString
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        request.setValue(id, forHTTPHeaderField: "id")
-
+        
+        var body = Data()
+        
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"id\"\r\n\r\n".data(using: .utf8)!)
+        body.append("\(id)\r\n".data(using: .utf8)!)
+        
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        
+        request.httpBody = body
         print("Sending request to: \(url)")
         
         URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
-                    print("Error fetching books: \(error.localizedDescription)")
+                    print("Error: \(error.localizedDescription)")
                     completion(nil)
                     return
                 }
-
+                
                 guard let data = data else {
                     print("No data received from the server")
                     completion(nil)
                     return
                 }
-
+                
                 do {
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        print("Raw response: \(jsonString)")
+                    }
                     let result = try JSONDecoder().decode(ResponseEditDelete.self, from: data)
                     print(result)
                     completion(result.data)

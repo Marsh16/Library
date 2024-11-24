@@ -8,9 +8,15 @@ import SwiftUI
 
 struct BookDetailView: View{
     let book: Book
+    @Environment(\.presentationMode) var presentationMode
     @EnvironmentObject var bookViewModel: BookViewModel
+    @EnvironmentObject var bookCategoryViewModel: BookCategoryViewModel
     @State private var isShowingEditBook = false
     @State private var showAlert = false
+    @State private var isNavHome = false
+    @State private var selectedCategories : Set<Int> = []
+
+
     var body: some View {
         LazyVStack {
             VStack{
@@ -56,13 +62,30 @@ struct BookDetailView: View{
             }
             .padding(.top, 75).frame(maxWidth: .infinity)
         }.sheet(isPresented: $isShowingEditBook) {
-            EditBookView(id: book.id, title: book.title, synopsis: book.synopsis, author: book.author, publishDate: DateFormatter.parseFormattedDate(book.publish_date)!, memberId: book.member_id, coverImageURL: book.cover_image).environmentObject(bookViewModel)
+            EditBookView(id: book.id, title: book.title, synopsis: book.synopsis, author: book.author, publishDate: DateFormatter.parseFormattedDate(book.publish_date)!, member_id: book.member_id, coverImageURL: book.cover_image, selectedCategories: selectedCategories).environmentObject(bookViewModel)
                 .environment(\.colorScheme, .light)
-        }.alert(isPresented: $showAlert) {
+                .navigationBarBackButtonHidden()
+        }.onAppear{
+            bookCategoryViewModel.getCategoryByBookId(id: book.id.description)
+            for category in bookCategoryViewModel.bookCategories {
+                selectedCategories.insert(Int(category.category_id)!)
+            }
+        }
+        .alert(isPresented: $showAlert) {
             Alert(title: Text("Delete Book"), message: Text("Are You Sure You Want To Delete This Book?"),primaryButton: .destructive(Text("Delete")) {
-                bookViewModel.deleteBook(id: "\(book.id)")
+                bookViewModel.result = "Uploading"
+                bookViewModel.deleteBook(id: String(book.id))
             },
-            secondaryButton: .cancel(Text("Dismiss")))
+                  secondaryButton: .cancel(Text("Dismiss")))
+        }.onChange(of: bookViewModel.result) { newValue in
+            if newValue == "Success" {
+                bookViewModel.getAllBook()
+                isNavHome = true
+            }
+        }
+        .navigationDestination(isPresented: $isNavHome) {
+            HomeView().environmentObject(bookViewModel)
+                .navigationBarBackButtonHidden(true)
         }
     }
 }

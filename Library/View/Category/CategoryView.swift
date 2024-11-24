@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct CategoryView: View {
-    @EnvironmentObject var bookViewModel: BookViewModel
+    @EnvironmentObject var categoryViewModel: CategoryViewModel
     @State private var isShowingAddCategory = false
     
     var body: some View {
@@ -36,21 +36,41 @@ struct CategoryView: View {
                 GeometryReader { geometry in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 15) {
-                            if bookViewModel.isLoading {
+                            if categoryViewModel.isLoading {
                                 VStack {
                                     ProgressView()
                                 }.frame(minWidth: 0, maxWidth: .infinity)
-                            } else {
-                                // Replace with your category list
-                                ForEach(0..<5) { index in
-                                    CategoryCard(name: "Category \(index + 1)", bookCount: Int.random(in: 1...20))
+                            }else if categoryViewModel.categories.count == 0 {
+                                VStack(spacing: 10) {
+                                    Text("Still Empty Here!")
+                                        .font(.title3)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.primary)
                                 }
+                                .padding(.top, 50)
+                            } else {
+                                ForEach(categoryViewModel.categories) { category in
+                                    NavigationLink {
+                                        CategoryDetailView(category: category).environmentObject(categoryViewModel)
+                                    } label: {
+                                        LazyVStack {
+                                            CategoryCard(name: "\(category.name)")
+                                        }
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                }
+                                
                             }
                         }
-                        .padding()
                     }
+                    .padding()
+                }.sheet(isPresented: $isShowingAddCategory) {
+                    CreateCategoryView().environmentObject(categoryViewModel)
+                        .environment(\.colorScheme, .light)
                 }
             }
+        }.onAppear{
+            categoryViewModel.getAllCategory()
         }
     }
 }
